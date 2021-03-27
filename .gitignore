@@ -1,7 +1,5 @@
-*.html
-*.js
-*.wasm
+
 .vscode
-lilearn.data
 liLearn
 .DS_Store
+liLearn.dSYM
