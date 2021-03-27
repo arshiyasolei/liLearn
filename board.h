@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <vector>
+#include <array>
 struct movePiece {
     int i;
     int j;
@@ -23,7 +23,7 @@ struct movePiece {
 };
 
 struct liBoard {
-    std::vector<std::vector<int>> board;
+    std::array<std::array<int,8>,8> board;
     int isJumpingOverPiece(movePiece *mPiece) {
         // get start piece pos
         int i = mPiece->i;

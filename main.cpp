@@ -16,17 +16,17 @@ js shit
       // Work-around chromium autoplay policy
       // https://github.com/emscripten-core/emscripten/issues/6511
       function resumeAudio(e) {
-	  if (typeof Module === 'undefined'
-	      || typeof Module.SDL2 == 'undefined'
-	      || typeof Module.SDL2.audioContext == 'undefined')
-	      return;
-	  if (Module.SDL2.audioContext.state == 'suspended') {
-	      Module.SDL2.audioContext.resume();
-	  }
-	  if (Module.SDL2.audioContext.state == 'running') {
-	      document.getElementById('canvas').removeEventListener('click', resumeAudio);
-	      document.removeEventListener('keydown', resumeAudio);
-	  }
+          if (typeof Module === 'undefined'
+              || typeof Module.SDL2 == 'undefined'
+              || typeof Module.SDL2.audioContext == 'undefined')
+              return;
+          if (Module.SDL2.audioContext.state == 'suspended') {
+              Module.SDL2.audioContext.resume();
+          }
+          if (Module.SDL2.audioContext.state == 'running') {
+              document.getElementById('canvas').removeEventListener('click',
+resumeAudio); document.removeEventListener('keydown', resumeAudio);
+          }
       }
       document.getElementById('canvas').addEventListener('click', resumeAudio);
       document.addEventListener('keydown', resumeAudio);
@@ -51,23 +51,31 @@ Add Chewt's UCI
 #include <stdio.h>
 #include <stdlib.h> /* srand, rand */
 #include <time.h>   /* time */
-
 #include <map>
 #include <queue>
 #include <stack>
 #include <string>
+#include <unordered_map>
 #include <vector>
+#include <array>
 
 #include "board.h"
 
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
 #endif
-// Screen dimension constants
+
+struct hash_pair {
+
+    size_t operator()(std::pair<int,int> p) const {
+        return size_t(p.first) << 32 | p.second;
+    }
+};
+
 
 int SCREEN_WIDTH = 512;
 int SCREEN_HEIGHT = 512;
-std::map<int, SDL_Texture*> images;
+std::unordered_map<int, SDL_Texture*> images;
 int optimal_star = 0;
 int num_stars_in_board = 0;
 int cur_move_count = 0;
@@ -83,23 +91,25 @@ SDL_Window* window = NULL;
 SDL_Renderer* gRenderer = NULL;
 liBoard* board = NULL;
 movePiece* p = NULL;
-Mix_Chunk *moveSound = NULL;
-Mix_Chunk *captureSound = NULL;
-Mix_Chunk *winSound = NULL;
+Mix_Chunk* moveSound = NULL;
+Mix_Chunk* captureSound = NULL;
+Mix_Chunk* winSound = NULL;
+
+
 SDL_Texture* loadTexture(std::string path, SDL_Renderer* gRenderer);
 void boardSetup();
 int numOptimalMovesToStar() {
     // pair of (num stars collected , board)
-
-    std::map<std::vector<std::vector<int>>, int> visited;
-
-    std::queue<std::tuple<int, int, liBoard>> stack;
-    stack.push(std::make_tuple(0, 0, *board));
+    int maxStacksize = 1;
+    std::map<std::array<std::array<int,8>,8>, int> visited;
+    std::queue<std::tuple<int, int, std::array<std::array<int,8>,8>>> stack;
+    stack.push(std::make_tuple(0, 0, board->board));
     int minNum = 2147483647;
     while (!stack.empty()) {
+        maxStacksize = std::max(maxStacksize,(int)stack.size());
         // get current board
         liBoard curBoard;
-        curBoard.board = std::get<2>(stack.front()).board;
+        curBoard.board = std::get<2>(stack.front());
         // if board is not in visited
         if (!(visited.find(curBoard.board) != visited.end())) {
             // add to visited
@@ -109,6 +119,8 @@ int numOptimalMovesToStar() {
             visited[curBoard.board] = curMoveCount;
             if (curStarcount == num_stars_in_board) {
                 minNum = std::min(std::get<1>(stack.front()), minNum);
+                printf("max size of stack: %d ," ,maxStacksize);
+                printf("size of visited %d\n",visited.size());
                 return minNum;
             }
             stack.pop();
@@ -132,11 +144,11 @@ int numOptimalMovesToStar() {
                                         if (starFlag) {
                                             stack.push(std::make_tuple(
                                                 curStarcount + 1,
-                                                curMoveCount + 1, curBoard));
+                                                curMoveCount + 1, curBoard.board));
                                         } else {
                                             stack.push(std::make_tuple(
                                                 curStarcount, curMoveCount + 1,
-                                                curBoard));
+                                                curBoard.board));
                                         }
 
                                         curBoard.board = backup.board;
@@ -149,11 +161,10 @@ int numOptimalMovesToStar() {
             }
         } else {
             // if position of board is
-            visited[curBoard.board] = 0;
             stack.pop();
         }
     }
-
+    printf("size of visited %d\n",visited.size());
     return minNum;
 }
 
@@ -176,8 +187,8 @@ char* pieceNamesPng[] = {"",
 const int whitePieceArr[] = {10, 11, 13};
 const int blackPieceArr[] = {6, 4, 5};
 
-std::map<int, SDL_Texture*> fillImages() {
-    std::map<int, SDL_Texture*> a;
+std::unordered_map<int, SDL_Texture*> fillImages() {
+    std::unordered_map<int, SDL_Texture*> a;
     for (int i = 0; i < 3; ++i) {
         a[whitePieceArr[i]] =
             loadTexture(pieceNamesPng[whitePieceArr[i]], gRenderer);
@@ -226,7 +237,7 @@ void draw(SDL_Window* window, liBoard* board, SDL_Renderer* gRenderer) {
         alt = i % 2;
         for (int j = 0; j < 8; ++j) {
             SDL_FRect myRecPos = {
-                .x = (j)*SIZE_W , .y = (i)*SIZE_H, .w = SIZE_W ,.h = SIZE_H};
+                .x = (j)*SIZE_W, .y = (i)*SIZE_H, .w = SIZE_W, .h = SIZE_H};
 
             if (alt) {
                 if (j % 2 == 0) {
@@ -287,6 +298,11 @@ void close(SDL_Window* gWindow, SDL_Renderer* gRenderer) {
     Mix_Quit();
     IMG_Quit();
     SDL_Quit();
+}
+
+int hashBoard(std::array<std::array<int,8>,8>& myBoard) {
+    int res = 0;
+
 }
 #ifdef EMSCRIPTEN
 void mainloop() {
@@ -371,16 +387,16 @@ int mainloop() {
             if (board->validateMove(p)) {
                 if (board->board[p->goalI][p->goalJ] == 99) {
                     cur_star_count += 1;
-                    Mix_PlayChannel( -1, captureSound, 0 );
+                    Mix_PlayChannel(-1, captureSound, 0);
                 } else {
-                    Mix_PlayChannel( -1, moveSound, 0 );
+                    Mix_PlayChannel(-1, moveSound, 0);
                 }
                 cur_move_count += 1;
                 board->updateBoard(p);
                 if (cur_star_count == num_stars_in_board) {
                     char buffer[100];
-                    Mix_PlayChannel( -1, winSound, 0 );
-                    
+                    Mix_PlayChannel(-1, winSound, 0);
+
                     snprintf(buffer, 100,
                              "Congrats! it took you %d moves. Optimal was %d "
                              "moves!\n",
@@ -405,13 +421,13 @@ int mainloop() {
             board->board[p->i][p->j] = 0;
             draw(window, board, gRenderer);
             board->board[p->i][p->j] = currentMovedPiece;
-            
+
             // draw whatever piece that is being moved
             // draw the pieces!
-            SDL_Rect mySpritePos = {
-                                    .x = e.button.x - (int)(SIZE_W / 2), .y = e.button.y - (int)(SIZE_H / 2)
-                                    ,.w = (int)SIZE_W ,.h = (int)SIZE_H
-                                    };
+            SDL_Rect mySpritePos = {.x = e.button.x - (int)(SIZE_W / 2),
+                                    .y = e.button.y - (int)(SIZE_H / 2),
+                                    .w = (int)SIZE_W,
+                                    .h = (int)SIZE_H};
 
             SDL_Texture* img;
             if (currentMovedPiece != 99)
@@ -437,9 +453,9 @@ int mainloop() {
 
 // function that sets up board randomly
 void boardSetup() {
-    num_stars_in_board = rand() % 3 + 7;
+    num_stars_in_board = (rand() % 4) + 6;
     std::vector<std::pair<int, int>> starPairs;
-    std::map<std::pair<int, int>, int> visi;
+    std::unordered_map<std::pair<int, int>, int,hash_pair> visi;
 
     int random_piece_choice = rand() % 3;
     int mainPieceI = rand() % 8;
@@ -456,20 +472,18 @@ void boardSetup() {
     }
     if (firstTimePlayingFlag) {
         for (int i = 0; i < 8; ++i) {
-            std::vector<int> tempBank;
             for (int j = 0; j < 8; ++j) {
                 if (i == mainPieceI && j == mainPieceJ) {
-                    tempBank.push_back(whitePieceArr[random_piece_choice]);
+                    board->board[i][j] = whitePieceArr[random_piece_choice];
                 } else {
-                    tempBank.push_back(0);
+                    board->board[i][j] = 0;
                 }
             }
-            board->board.push_back(tempBank);
         }
         for (int i = 0; i < num_stars_in_board; ++i) {
             board->board[starPairs[i].first][starPairs[i].second] = 99;
-            firstTimePlayingFlag = 0;
         }
+        firstTimePlayingFlag = 0;
     } else {
         for (int i = 0; i < 8; ++i) {
             for (int j = 0; j < 8; ++j) {
