@@ -226,7 +226,7 @@ void draw(SDL_Window* window, liBoard* board, SDL_Renderer* gRenderer) {
         alt = i % 2;
         for (int j = 0; j < 8; ++j) {
             SDL_FRect myRecPos = {
-                .y = (i)*SIZE_H, .x = (j)*SIZE_W, .h = SIZE_H, .w = SIZE_W};
+                .x = (j)*SIZE_W , .y = (i)*SIZE_H, .w = SIZE_W ,.h = SIZE_H};
 
             if (alt) {
                 if (j % 2 == 0) {
@@ -408,10 +408,10 @@ int mainloop() {
             
             // draw whatever piece that is being moved
             // draw the pieces!
-            SDL_Rect mySpritePos = {.y = e.button.y - (int)(SIZE_H / 2),
-                                    .x = e.button.x - (int)(SIZE_W / 2),
-                                    .h = (int)SIZE_H,
-                                    .w = (int)SIZE_W};
+            SDL_Rect mySpritePos = {
+                                    .x = e.button.x - (int)(SIZE_W / 2), .y = e.button.y - (int)(SIZE_H / 2)
+                                    ,.w = (int)SIZE_W ,.h = (int)SIZE_H
+                                    };
 
             SDL_Texture* img;
             if (currentMovedPiece != 99)
@@ -437,7 +437,7 @@ int mainloop() {
 
 // function that sets up board randomly
 void boardSetup() {
-    num_stars_in_board = rand() % 3 + 6;
+    num_stars_in_board = rand() % 3 + 7;
     std::vector<std::pair<int, int>> starPairs;
     std::map<std::pair<int, int>, int> visi;
 
