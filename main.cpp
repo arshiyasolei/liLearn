@@ -391,11 +391,11 @@ int mainloop() {
                                              "Update", buffer, NULL);
                     boardSetup();
                     optimal_star = numOptimalMovesToStar();
-                    memset(buffer, 0, sizeof(buffer));
-                    snprintf(buffer, 100, "Number of optimal Moves: %d \n",
+                    char buffer2[100];
+                    snprintf(buffer2, 100, "Number of optimal Moves: %d \n",
                              optimal_star);
                     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION,
-                                             "Update", buffer, NULL);
+                                             "Update", buffer2, NULL);
                 }
             }
             validMove = 0;
@@ -437,7 +437,7 @@ int mainloop() {
 
 // function that sets up board randomly
 void boardSetup() {
-    num_stars_in_board = rand() % 3 + 5;
+    num_stars_in_board = rand() % 3 + 6;
     std::vector<std::pair<int, int>> starPairs;
     std::map<std::pair<int, int>, int> visi;
 
