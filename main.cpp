@@ -11,6 +11,26 @@ css element needed for fullscreen
     display: block;
 }
 
+js shit
+
+      // Work-around chromium autoplay policy
+      // https://github.com/emscripten-core/emscripten/issues/6511
+      function resumeAudio(e) {
+	  if (typeof Module === 'undefined'
+	      || typeof Module.SDL2 == 'undefined'
+	      || typeof Module.SDL2.audioContext == 'undefined')
+	      return;
+	  if (Module.SDL2.audioContext.state == 'suspended') {
+	      Module.SDL2.audioContext.resume();
+	  }
+	  if (Module.SDL2.audioContext.state == 'running') {
+	      document.getElementById('canvas').removeEventListener('click', resumeAudio);
+	      document.removeEventListener('keydown', resumeAudio);
+	  }
+      }
+      document.getElementById('canvas').addEventListener('click', resumeAudio);
+      document.addEventListener('keydown', resumeAudio);
+
 */
 
 /* TODOS :
@@ -360,6 +380,7 @@ int mainloop() {
                 if (cur_star_count == num_stars_in_board) {
                     char buffer[100];
                     Mix_PlayChannel( -1, winSound, 0 );
+                    
                     snprintf(buffer, 100,
                              "Congrats! it took you %d moves. Optimal was %d "
                              "moves!\n",
@@ -384,7 +405,7 @@ int mainloop() {
             board->board[p->i][p->j] = 0;
             draw(window, board, gRenderer);
             board->board[p->i][p->j] = currentMovedPiece;
-            printf("reaching?\n");
+            
             // draw whatever piece that is being moved
             // draw the pieces!
             SDL_Rect mySpritePos = {.y = e.button.y - (int)(SIZE_H / 2),
@@ -416,7 +437,7 @@ int mainloop() {
 
 // function that sets up board randomly
 void boardSetup() {
-    num_stars_in_board = rand() % 2 + 4;
+    num_stars_in_board = rand() % 3 + 5;
     std::vector<std::pair<int, int>> starPairs;
     std::map<std::pair<int, int>, int> visi;
 
