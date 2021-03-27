@@ -38,7 +38,7 @@ struct liBoard {
                     if (board[i][start]) {
                         if (start == mPiece->goalJ &&
                             board[mPiece->goalI][mPiece->goalJ] == 99) {
-                            printf("yes\n");
+                            
                             return 0;
                         }
                         return 1;
@@ -101,7 +101,7 @@ struct liBoard {
                 }
                 return 0;
             } else if ((j < mPiece->goalJ) && (i > mPiece->goalI)) {
-                printf("somecorener\n");
+                
                 temp = i - 1;
                 for (int start = j + 1; start <= mPiece->goalJ; ++start) {
                     if (board[temp][start]) {

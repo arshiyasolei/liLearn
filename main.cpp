@@ -50,18 +50,24 @@ int SCREEN_HEIGHT = 512;
 std::map<int, SDL_Texture*> images;
 int optimal_star = 0;
 int num_stars_in_board = 0;
+int cur_move_count = 0;
+int cur_star_count = 0;
 float SIZE_H = 64;
 float SIZE_W = 64;
 int firstClick = 0;
 int validMove = 0;
 int currentMovedPiece = -1;
 int oldMovedPiece = -1;
+int firstTimePlayingFlag = 1;
 SDL_Window* window = NULL;
 SDL_Renderer* gRenderer = NULL;
 liBoard* board = NULL;
 movePiece* p = NULL;
+Mix_Chunk *moveSound = NULL;
+Mix_Chunk *captureSound = NULL;
+Mix_Chunk *winSound = NULL;
 SDL_Texture* loadTexture(std::string path, SDL_Renderer* gRenderer);
-
+void boardSetup();
 int numOptimalMovesToStar() {
     // pair of (num stars collected , board)
 
@@ -162,6 +168,11 @@ std::map<int, SDL_Texture*> fillImages() {
 
     a[99] = loadTexture("images/star.png", gRenderer);
 
+    // also load music here
+    winSound = Mix_LoadWAV("sounds/win.wav");
+    captureSound = Mix_LoadWAV("sounds/capture.wav");
+    moveSound = Mix_LoadWAV("sounds/move.wav");
+
     return a;
 }
 
@@ -249,8 +260,11 @@ void close(SDL_Window* gWindow, SDL_Renderer* gRenderer) {
     for (auto const& x : images) {
         SDL_DestroyTexture(x.second);
     }
-
+    Mix_FreeChunk(winSound);
+    Mix_FreeChunk(captureSound);
+    Mix_FreeChunk(moveSound);
     // Quit SDL subsystems
+    Mix_Quit();
     IMG_Quit();
     SDL_Quit();
 }
@@ -335,7 +349,33 @@ int mainloop() {
         // SDL_RenderCopy( gRenderer, testTexture, NULL, NULL );
         if (validMove) {
             if (board->validateMove(p)) {
+                if (board->board[p->goalI][p->goalJ] == 99) {
+                    cur_star_count += 1;
+                    Mix_PlayChannel( -1, captureSound, 0 );
+                } else {
+                    Mix_PlayChannel( -1, moveSound, 0 );
+                }
+                cur_move_count += 1;
                 board->updateBoard(p);
+                if (cur_star_count == num_stars_in_board) {
+                    char buffer[100];
+                    Mix_PlayChannel( -1, winSound, 0 );
+                    snprintf(buffer, 100,
+                             "Congrats! it took you %d moves. Optimal was %d "
+                             "moves!\n",
+                             cur_move_count, optimal_star);
+                    cur_move_count = 0;
+                    cur_star_count = 0;
+                    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION,
+                                             "Update", buffer, NULL);
+                    boardSetup();
+                    optimal_star = numOptimalMovesToStar();
+                    memset(buffer, 0, sizeof(buffer));
+                    snprintf(buffer, 100, "Number of optimal Moves: %d \n",
+                             optimal_star);
+                    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION,
+                                             "Update", buffer, NULL);
+                }
             }
             validMove = 0;
         }
@@ -376,7 +416,7 @@ int mainloop() {
 
 // function that sets up board randomly
 void boardSetup() {
-    num_stars_in_board = rand() % 5 + 3;
+    num_stars_in_board = rand() % 2 + 4;
     std::vector<std::pair<int, int>> starPairs;
     std::map<std::pair<int, int>, int> visi;
 
@@ -393,21 +433,35 @@ void boardSetup() {
         visi[sample] = 0;
         starPairs.push_back(sample);
     }
-
-    for (int i = 0; i < 8; ++i) {
-        std::vector<int> tempBank;
-        for (int j = 0; j < 8; ++j) {
-            
-            if (i == mainPieceI && j == mainPieceJ) {
-                tempBank.push_back(whitePieceArr[random_piece_choice]);
-            } else {
-                tempBank.push_back(0);
+    if (firstTimePlayingFlag) {
+        for (int i = 0; i < 8; ++i) {
+            std::vector<int> tempBank;
+            for (int j = 0; j < 8; ++j) {
+                if (i == mainPieceI && j == mainPieceJ) {
+                    tempBank.push_back(whitePieceArr[random_piece_choice]);
+                } else {
+                    tempBank.push_back(0);
+                }
+            }
+            board->board.push_back(tempBank);
+        }
+        for (int i = 0; i < num_stars_in_board; ++i) {
+            board->board[starPairs[i].first][starPairs[i].second] = 99;
+            firstTimePlayingFlag = 0;
+        }
+    } else {
+        for (int i = 0; i < 8; ++i) {
+            for (int j = 0; j < 8; ++j) {
+                if (i == mainPieceI && j == mainPieceJ) {
+                    board->board[i][j] = whitePieceArr[random_piece_choice];
+                } else {
+                    board->board[i][j] = 0;
+                }
             }
         }
-        board->board.push_back(tempBank);
-    }
-    for (int i = 0; i < num_stars_in_board; ++i) {
-        board->board[starPairs[i].first][starPairs[i].second] = 99;
+        for (int i = 0; i < num_stars_in_board; ++i) {
+            board->board[starPairs[i].first][starPairs[i].second] = 99;
+        }
     }
 }
 int main(int argc, char* args[]) {
@@ -422,15 +476,25 @@ int main(int argc, char* args[]) {
     int firstClick = 0;
     int validMove = 0;
     optimal_star = numOptimalMovesToStar();
+    char buffer[100];
+    snprintf(buffer, 100, "Number of optimal Moves: %d \n", optimal_star);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Update", buffer,
+                             NULL);
+
     printf("num optimal Moves %d \n", optimal_star);
     // Initialize SDL and SDL_Image
     IMG_Init(IMG_INIT_PNG);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER |
+                 SDL_INIT_AUDIO) < 0) {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
     } else {
         // Create window
+        if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+            printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n",
+                   Mix_GetError());
+        }
         window = SDL_CreateWindow("LiLearn", SDL_WINDOWPOS_UNDEFINED,
                                   SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH,
                                   SCREEN_HEIGHT,
