@@ -27,12 +27,19 @@ Add Chewt's UCI
 // Using SDL and standard IO
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
 #include <stdio.h>
+#include <stdlib.h> /* srand, rand */
+#include <time.h>   /* time */
+
 #include <map>
+#include <queue>
+#include <stack>
 #include <string>
 #include <vector>
 
-#include "chess.h"
+#include "board.h"
+
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
 #endif
@@ -40,7 +47,9 @@ Add Chewt's UCI
 
 int SCREEN_WIDTH = 512;
 int SCREEN_HEIGHT = 512;
-std::map<int,SDL_Texture*> images;
+std::map<int, SDL_Texture*> images;
+int optimal_star = 0;
+int num_stars_in_board = 0;
 float SIZE_H = 64;
 float SIZE_W = 64;
 int firstClick = 0;
@@ -49,15 +58,77 @@ int currentMovedPiece = -1;
 int oldMovedPiece = -1;
 SDL_Window* window = NULL;
 SDL_Renderer* gRenderer = NULL;
-chessBoard* board = NULL;
+liBoard* board = NULL;
 movePiece* p = NULL;
 SDL_Texture* loadTexture(std::string path, SDL_Renderer* gRenderer);
 
-int numOptimalMovesToStar(){
+int numOptimalMovesToStar() {
+    // pair of (num stars collected , board)
 
-    
+    std::map<std::vector<std::vector<int>>, int> visited;
 
+    std::queue<std::tuple<int, int, liBoard>> stack;
+    stack.push(std::make_tuple(0, 0, *board));
+    int minNum = 2147483647;
+    while (!stack.empty()) {
+        // get current board
+        liBoard curBoard;
+        curBoard.board = std::get<2>(stack.front()).board;
+        // if board is not in visited
+        if (!(visited.find(curBoard.board) != visited.end())) {
+            // add to visited
 
+            int curStarcount = std::get<0>(stack.front());
+            int curMoveCount = std::get<1>(stack.front());
+            visited[curBoard.board] = curMoveCount;
+            if (curStarcount == num_stars_in_board) {
+                minNum = std::min(std::get<1>(stack.front()), minNum);
+                return minNum;
+            }
+            stack.pop();
+            for (int i = 0; i < 8; ++i) {
+                for (int j = 0; j < 8; ++j) {
+                    for (int k = 0; k < 8; ++k) {
+                        for (int l = 0; l < 8; ++l) {
+                            if (i != k || j != l) {
+                                if (curBoard.board[i][j] &&
+                                    curBoard.board[i][j] != 99) {
+                                    movePiece tempMove = {i, j, k, l};
+                                    if (curBoard.validateMove(&tempMove)) {
+                                        // add this to stack
+                                        liBoard backup;
+                                        int starFlag = 0;
+                                        backup.board = curBoard.board;
+                                        if (curBoard.board[k][l] == 99) {
+                                            starFlag = 1;
+                                        }
+                                        curBoard.updateBoard(&tempMove);
+                                        if (starFlag) {
+                                            stack.push(std::make_tuple(
+                                                curStarcount + 1,
+                                                curMoveCount + 1, curBoard));
+                                        } else {
+                                            stack.push(std::make_tuple(
+                                                curStarcount, curMoveCount + 1,
+                                                curBoard));
+                                        }
+
+                                        curBoard.board = backup.board;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // if position of board is
+            visited[curBoard.board] = 0;
+            stack.pop();
+        }
+    }
+
+    return minNum;
 }
 
 char* pieceNamesPng[] = {"",
@@ -76,32 +147,25 @@ char* pieceNamesPng[] = {"",
                          "images/white_queen.png",
                          "images/white_king.png"};
 
-const int whitePieceArr[] = {14, 2, 10, 11, 13, 12};
-const int blackPieceArr[] = {7, 1, 6, 4, 5, 3};
+const int whitePieceArr[] = {10, 11, 13};
+const int blackPieceArr[] = {6, 4, 5};
 
-std::map<int,SDL_Texture*> fillImages(){
-    
-    
-    std::map<int,SDL_Texture*> a;
-    for (int i = 0; i < 6; ++i){
-        
-        a[whitePieceArr[i]] = loadTexture(pieceNamesPng[whitePieceArr[i]],
-                                      gRenderer);
+std::map<int, SDL_Texture*> fillImages() {
+    std::map<int, SDL_Texture*> a;
+    for (int i = 0; i < 3; ++i) {
+        a[whitePieceArr[i]] =
+            loadTexture(pieceNamesPng[whitePieceArr[i]], gRenderer);
 
-        a[blackPieceArr[i]] = loadTexture(pieceNamesPng[blackPieceArr[i]],
-                                gRenderer);
-                      
-
+        a[blackPieceArr[i]] =
+            loadTexture(pieceNamesPng[blackPieceArr[i]], gRenderer);
     }
-    
-    a[99] = loadTexture("images/star.png", gRenderer);
-    
-    return a;
 
+    a[99] = loadTexture("images/star.png", gRenderer);
+
+    return a;
 }
 
-
-void drawBoardPieces(SDL_Window* window, chessBoard* board,
+void drawBoardPieces(SDL_Window* window, liBoard* board,
                      SDL_Renderer* gRenderer) {
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; j++) {
@@ -119,13 +183,12 @@ void drawBoardPieces(SDL_Window* window, chessBoard* board,
                     img = images[99];
                 // draw texture at location
                 SDL_RenderCopy(gRenderer, img, NULL, &mySpritePos);
-                
             }
         }
     }
 }
 
-void draw(SDL_Window* window, chessBoard* board, SDL_Renderer* gRenderer) {
+void draw(SDL_Window* window, liBoard* board, SDL_Renderer* gRenderer) {
     // prints board
     int alt = 0;
     for (int i = 0; i < 8; ++i) {
@@ -183,6 +246,9 @@ void close(SDL_Window* gWindow, SDL_Renderer* gRenderer) {
     SDL_DestroyWindow(gWindow);
     gWindow = NULL;
     gRenderer = NULL;
+    for (auto const& x : images) {
+        SDL_DestroyTexture(x.second);
+    }
 
     // Quit SDL subsystems
     IMG_Quit();
@@ -218,7 +284,6 @@ int mainloop() {
             }
         }
         if (e.type == SDL_MOUSEBUTTONDOWN) {
-            
             if (e.button.button == SDL_BUTTON_LEFT) {
                 if (firstClick == 0) {
                     // see where this click falls on 8x8
@@ -243,7 +308,6 @@ int mainloop() {
 
         if (e.type == SDL_MOUSEBUTTONUP) {
             if (e.button.button == SDL_BUTTON_LEFT) {
-                printf("shit\n");
                 if (firstClick == 1) {
                     printf("two\n");
                     if (p->i != (int)(e.button.y / SIZE_H) ||
@@ -270,36 +334,35 @@ int mainloop() {
         // Render texture to screen
         // SDL_RenderCopy( gRenderer, testTexture, NULL, NULL );
         if (validMove) {
-            if (updateBoard(board, p)) {
-                printf("game is over!\n");
+            if (board->validateMove(p)) {
+                board->updateBoard(p);
             }
             validMove = 0;
         }
-        
-                if (firstClick && currentMovedPiece != -1) {
 
-                    board->board[p->i][p->j]  = 0;
-                    draw(window, board, gRenderer);
-                    board->board[p->i][p->j]  = currentMovedPiece;
-                    printf("reaching?\n");
-                    // draw whatever piece that is being moved
-                    // draw the pieces!
-                    SDL_Rect mySpritePos = {.y = e.button.y - SIZE_H/2,
-                                          .x = e.button.x - SIZE_W/2,
-                                          .h = SIZE_H,
-                                          .w = SIZE_W};
+        if (firstClick && currentMovedPiece != -1) {
+            board->board[p->i][p->j] = 0;
+            draw(window, board, gRenderer);
+            board->board[p->i][p->j] = currentMovedPiece;
+            printf("reaching?\n");
+            // draw whatever piece that is being moved
+            // draw the pieces!
+            SDL_Rect mySpritePos = {.y = e.button.y - (int)(SIZE_H / 2),
+                                    .x = e.button.x - (int)(SIZE_W / 2),
+                                    .h = (int)SIZE_H,
+                                    .w = (int)SIZE_W};
 
-                    SDL_Texture* img;
-                    if (currentMovedPiece != 99)
-                        img = images[currentMovedPiece];
-                    else
-                        img = images[99];
-                    // draw texture at location
-                    SDL_RenderCopy(gRenderer, img, NULL, &mySpritePos);
-                    
-                } else {
-                    draw(window, board, gRenderer);
-                }
+            SDL_Texture* img;
+            if (currentMovedPiece != 99)
+                img = images[currentMovedPiece];
+            else
+                img = images[99];
+            // draw texture at location
+            SDL_RenderCopy(gRenderer, img, NULL, &mySpritePos);
+
+        } else {
+            draw(window, board, gRenderer);
+        }
         // Update screen
         SDL_RenderPresent(gRenderer);
     }
@@ -311,26 +374,55 @@ int mainloop() {
     // printf("%d %d\n",ab,ac);
 }
 
+// function that sets up board randomly
+void boardSetup() {
+    num_stars_in_board = rand() % 5 + 3;
+    std::vector<std::pair<int, int>> starPairs;
+    std::map<std::pair<int, int>, int> visi;
+
+    int random_piece_choice = rand() % 3;
+    int mainPieceI = rand() % 8;
+    int mainPieceJ = rand() % 8;
+    visi[std::make_pair(mainPieceI, mainPieceJ)] = 0;
+    for (int v = 0; v < num_stars_in_board; ++v) {
+        std::pair<int, int> sample(rand() % 8, rand() % 8);
+        while ((visi.find(sample) != visi.end())) {
+            std::pair<int, int> t(rand() % 8, rand() % 8);
+            sample = t;
+        }
+        visi[sample] = 0;
+        starPairs.push_back(sample);
+    }
+
+    for (int i = 0; i < 8; ++i) {
+        std::vector<int> tempBank;
+        for (int j = 0; j < 8; ++j) {
+            
+            if (i == mainPieceI && j == mainPieceJ) {
+                tempBank.push_back(whitePieceArr[random_piece_choice]);
+            } else {
+                tempBank.push_back(0);
+            }
+        }
+        board->board.push_back(tempBank);
+    }
+    for (int i = 0; i < num_stars_in_board; ++i) {
+        board->board[starPairs[i].first][starPairs[i].second] = 99;
+    }
+}
 int main(int argc, char* args[]) {
-    chessBoard boarda = {.castleStats = {0, 0, 0, 0},
-                         .lastMovePawnTwoUp = 0,
-                         .lastPieceMoveCord = {-1, -1},
-                         .turn = 0,
-                         .board = {{5, 4, 3, 6, 7, 3, 4, 5},
-                                   {1, 1, 1, 1, 1, 1, 1, 1},
-                                   {0, 0, 0, 0, 0, 0, 0, 0},
-                                   {0, 0, 0, 0, 0, 0, 0, 0},
-                                   {0, 0, 0, 99, 0, 0, 0, 0},
-                                   {0, 0, 0, 0, 0, 0, 0, 0},
-                                   {2, 2, 2, 2, 2, 2, 2, 2},
-                                   {10, 11, 12, 13, 14, 12, 11, 10}}};
+    srand(time(NULL));
+    liBoard boarda;
     // piece to be moved...
     board = &boarda;
+    boardSetup();
+
     movePiece pa = {1, 0, 3, 0};
     p = &pa;
     int firstClick = 0;
     int validMove = 0;
-
+    optimal_star = numOptimalMovesToStar();
+    printf("num optimal Moves %d \n", optimal_star);
     // Initialize SDL and SDL_Image
     IMG_Init(IMG_INIT_PNG);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
@@ -355,7 +447,7 @@ int main(int argc, char* args[]) {
                 SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
             SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
             images = fillImages();
-            
+
             // testTexture = loadTexture("images/black_pawn.png",gRenderer);
             // handle events
         }
