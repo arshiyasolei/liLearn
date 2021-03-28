@@ -366,8 +366,8 @@ int mainloop() {
                 if (firstClick == 0) {
                     // touch
                     printf("one\n");
-                    p->j = (int)(e.tfinger.x / SIZE_W);
-                    p->i = (int)(e.tfinger.y / SIZE_H);
+                    p->j = (int)(((int)(e.tfinger.x*SIZE_W)) / SIZE_W);
+                    p->i = (int)(((int)(e.tfinger.y*SIZE_H)) / SIZE_H);
                     if (board->board[p->i][p->j]) {
                         currentMovedPiece = board->board[p->i][p->j];
                     } else {
@@ -403,10 +403,11 @@ int mainloop() {
         if (e.type == SDL_FINGERUP) {
                 if (firstClick == 1) {
                     printf("two\n");
-                    if (p->i != (int)(e.tfinger.y / SIZE_H) ||
-                        (int)(e.tfinger.x / SIZE_W) != p->j) {
-                        p->goalJ = (int)(e.tfinger.x / SIZE_W);
-                        p->goalI = (int)(e.tfinger.y / SIZE_H);
+                    if (p->i != (int)(((int)(e.tfinger.y*SIZE_H)) / SIZE_H) ||
+                        (int)(((int)(e.tfinger.x*SIZE_W)) / SIZE_W) != p->j) {
+
+                        p->j = (int)(((int)(e.tfinger.x*SIZE_W)) / SIZE_W);
+                        p->i = (int)(((int)(e.tfinger.y*SIZE_H)) / SIZE_H);
                         validMove = 1;
                     }
                     firstClick = 0;
@@ -438,7 +439,6 @@ int mainloop() {
 
         if( e.type == SDL_FINGERMOTION ){ 
             touchFlag = 1;
-            printf("finger\n");
         }
         // Clear screen
         SDL_RenderClear(gRenderer);
@@ -493,8 +493,8 @@ int mainloop() {
                 x = e.button.x - (int)(SIZE_W / 2);
                 y = e.button.y - (int)(SIZE_H / 2);
             } else {
-                x = e.tfinger.x - (int)(SIZE_W / 2);
-                y = e.tfinger.y - (int)(SIZE_H / 2);
+                x = (int)(e.tfinger.x*SIZE_W) - (int)(SIZE_W / 2);
+                y = (int)(e.tfinger.y*SIZE_H) - (int)(SIZE_H / 2);
             }
             SDL_Rect mySpritePos = {.x = x,
                                     .y = y,
