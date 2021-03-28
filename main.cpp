@@ -489,13 +489,10 @@ int mainloop() {
             int x = 0;
             int y = 0;
             // if we had touch..
-            if (!touchFlag) {
-                x = e.button.x - (int)(SIZE_W / 2);
-                y = e.button.y - (int)(SIZE_H / 2);
-            } else {
-                x = e.tfinger.x - (int)(SIZE_W / 2);
-                y = e.tfinger.y - (int)(SIZE_H / 2);
-            }
+
+            x = e.button.x - (int)(SIZE_W / 2);
+            y = e.button.y - (int)(SIZE_H / 2);
+           
             SDL_Rect mySpritePos = {.x = x,
                                     .y = y,
                                     .w = (int)SIZE_W,
