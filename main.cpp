@@ -430,13 +430,14 @@ int mainloop() {
                 // event.mouseButton.y);
             }
         }
-        if( e.type == SDL_FINGERMOTION ){ 
-            touchFlag = 1;
-        }
 
         if (e.type == SDL_MOUSEMOTION) {
             if (e.button.button == SDL_BUTTON_LEFT) {
             }
+        }
+
+        if( e.type == SDL_FINGERMOTION ){ 
+            touchFlag = 1;
         }
         // Clear screen
         SDL_RenderClear(gRenderer);
