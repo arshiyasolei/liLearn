@@ -438,6 +438,7 @@ int mainloop() {
 
         if( e.type == SDL_FINGERMOTION ){ 
             touchFlag = 1;
+            printf("finger");
         }
         // Clear screen
         SDL_RenderClear(gRenderer);
