@@ -362,23 +362,8 @@ int mainloop() {
 #endif
             }
         }
-        if( e.type == SDL_FINGERDOWN ){
-                if (firstClick == 0) {
-                    // touch
-                    printf("one\n");
-                    p->j = (int)(((int)(e.tfinger.x*SIZE_W)) / SIZE_W);
-                    p->i = (int)(((int)(e.tfinger.y*SIZE_H)) / SIZE_H);
-                    if (board->board[p->i][p->j]) {
-                        currentMovedPiece = board->board[p->i][p->j];
-                    } else {
-                        currentMovedPiece = -1;
-                    }
-                    printf("%d %d\n", e.tfinger.x, e.tfinger.y);
-                    firstClick = 1;
-                }
-        }
         
-        if (e.type == SDL_MOUSEBUTTONDOWN && e.button.which != SDL_TOUCH_MOUSEID) {
+        if (e.type == SDL_MOUSEBUTTONDOWN) {
             if (e.button.button == SDL_BUTTON_LEFT) {
                 if (firstClick == 0) {
                     // see where this click falls on 8x8
@@ -400,21 +385,8 @@ int mainloop() {
                 // event.mouseButton.y);
             }
         }
-        if (e.type == SDL_FINGERUP) {
-                if (firstClick == 1) {
-                    printf("two\n");
-                    if (p->i != (int)(((int)(e.tfinger.y*SIZE_H)) / SIZE_H) ||
-                        (int)(((int)(e.tfinger.x*SIZE_W)) / SIZE_W) != p->j) {
 
-                        p->j = (int)(((int)(e.tfinger.x*SIZE_W)) / SIZE_W);
-                        p->i = (int)(((int)(e.tfinger.y*SIZE_H)) / SIZE_H);
-                        validMove = 1;
-                    }
-                    firstClick = 0;
-                    // this sets the goal i,j
-                }
-        }
-        if (e.type == SDL_MOUSEBUTTONUP && e.button.which != SDL_TOUCH_MOUSEID) {
+        if (e.type == SDL_MOUSEBUTTONUP) {
             if (e.button.button == SDL_BUTTON_LEFT) {
                 if (firstClick == 1) {
                     printf("two\n");
@@ -437,9 +409,6 @@ int mainloop() {
             }
         }
 
-        if( e.type == SDL_FINGERMOTION ){ 
-            touchFlag = 1;
-        }
         // Clear screen
         SDL_RenderClear(gRenderer);
 
@@ -489,13 +458,10 @@ int mainloop() {
             int x = 0;
             int y = 0;
             // if we had touch..
-            if (!touchFlag) {
-                x = e.button.x - (int)(SIZE_W / 2);
-                y = e.button.y - (int)(SIZE_H / 2);
-            } else {
-                x = (int)(e.tfinger.x*SIZE_W) - (int)(SIZE_W / 2);
-                y = (int)(e.tfinger.y*SIZE_H) - (int)(SIZE_H / 2);
-            }
+
+            x = e.button.x - (int)(SIZE_W / 2);
+            y = e.button.y - (int)(SIZE_H / 2);
+
             SDL_Rect mySpritePos = {.x = x,
                                     .y = y,
                                     .w = (int)SIZE_W,
