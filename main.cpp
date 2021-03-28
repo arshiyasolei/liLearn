@@ -171,7 +171,15 @@ int numOptimalMovesToStar() {
                             ? 1
                             : 0;
                     curBoard.updateBoard(&tempMove);
-
+                    std::queue<std::tuple<int, int, std::array<std::array<int, 8>, 8>>> nq;
+                    if (starFlag) {
+                        nq.push(std::make_tuple(curStarcount + starFlag,
+                            curMoveCount + 1,
+                            curBoard.board));
+                        stack = nq;
+                        curBoard.board = backup.board;
+                        break;
+                    } 
                     stack.push(std::make_tuple(curStarcount + starFlag,
                                                curMoveCount + 1,
                                                curBoard.board));
@@ -472,10 +480,11 @@ int mainloop() {
 
 // function that sets up board randomly
 void boardSetup() {
-    num_stars_in_board = (rand() % 4) + 6;
+    num_stars_in_board = (rand() % 30) + 12;
     std::vector<std::pair<int, int>> starPairs;
     std::unordered_map<std::pair<int, int>, int, hash_pair> visi;
     int random_piece_choice = rand() % 3;
+    random_piece_choice = 1;
     int mainPieceI = rand() % 8;
     int mainPieceJ = rand() % 8;
     visi[std::make_pair(mainPieceI, mainPieceJ)] = 0;
@@ -545,8 +554,7 @@ int main(int argc, char* args[]) {
             printf("Window could not be created! SDL_Error: %s\n",
                    SDL_GetError());
         } else {
-            int ab;
-            int ac;
+            
             SDL_SetWindowSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
             gRenderer =
                 SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
