@@ -59,7 +59,7 @@ Highlight last made move
 
 #include "board.h"
 
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
 
@@ -285,6 +285,7 @@ void draw(SDL_Window* window, liBoard* board, SDL_Renderer* gRenderer) {
             SDL_RenderFillRectF(gRenderer, &myRecPos);
         }
     }
+    
     drawBoardPieces(window, board, gRenderer);
 }
 
@@ -331,7 +332,7 @@ void close(SDL_Window* gWindow, SDL_Renderer* gRenderer) {
 }
 
 // the main loop of the program that runs every frame
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 void mainloop() {
 #else
 int mainloop() {
@@ -339,10 +340,11 @@ int mainloop() {
     SDL_Event e;
     bool quit = false;
 
-    if (SDL_PollEvent(&e)) {
+    while (SDL_PollEvent(&e)) {
+        int touchFlag = 0;
         if (e.type == SDL_QUIT) {
             close(window, gRenderer);
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
             emscripten_cancel_main_loop();
 #else
             return 0;
@@ -355,11 +357,27 @@ int mainloop() {
                 SIZE_W = e.window.data1 / 8.0;
                 SIZE_H = e.window.data2 / 8.0;
                 printf("%f %f\n", SIZE_W, SIZE_H);
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
                 return 1;
 #endif
             }
         }
+        if( e.type == SDL_FINGERDOWN ){
+                if (firstClick == 0) {
+                    // touch
+                    printf("one\n");
+                    p->j = (int)(e.tfinger.x / SIZE_W);
+                    p->i = (int)(e.tfinger.y / SIZE_H);
+                    if (board->board[p->i][p->j]) {
+                        currentMovedPiece = board->board[p->i][p->j];
+                    } else {
+                        currentMovedPiece = -1;
+                    }
+                    printf("%d %d\n", e.tfinger.x, e.tfinger.y);
+                    firstClick = 1;
+                }
+        }
+        
         if (e.type == SDL_MOUSEBUTTONDOWN) {
             if (e.button.button == SDL_BUTTON_LEFT) {
                 if (firstClick == 0) {
@@ -382,7 +400,19 @@ int mainloop() {
                 // event.mouseButton.y);
             }
         }
-
+        if (e.type == SDL_FINGERUP) {
+                if (firstClick == 1) {
+                    printf("two\n");
+                    if (p->i != (int)(e.tfinger.y / SIZE_H) ||
+                        (int)(e.tfinger.x / SIZE_W) != p->j) {
+                        p->goalJ = (int)(e.tfinger.x / SIZE_W);
+                        p->goalI = (int)(e.tfinger.y / SIZE_H);
+                        validMove = 1;
+                    }
+                    firstClick = 0;
+                    // this sets the goal i,j
+                }
+        }
         if (e.type == SDL_MOUSEBUTTONUP) {
             if (e.button.button == SDL_BUTTON_LEFT) {
                 if (firstClick == 1) {
@@ -399,6 +429,9 @@ int mainloop() {
                 // printf("%d %d\n", event.mouseButton.x,
                 // event.mouseButton.y);
             }
+        }
+        if( e.type == SDL_FINGERMOTION ){ 
+            touchFlag = 1;
         }
 
         if (e.type == SDL_MOUSEMOTION) {
@@ -451,11 +484,21 @@ int mainloop() {
 
             // draw whatever piece that is being moved
             // draw the pieces!
-            SDL_Rect mySpritePos = {.x = e.button.x - (int)(SIZE_W / 2),
-                                    .y = e.button.y - (int)(SIZE_H / 2),
+            int x = 0;
+            int y = 0;
+            // if we had touch..
+            if (!touchFlag) {
+                x = e.button.x - (int)(SIZE_W / 2);
+                y = e.button.y - (int)(SIZE_H / 2);
+            } else {
+                x = e.tfinger.x - (int)(SIZE_W / 2);
+                y = e.tfinger.y - (int)(SIZE_H / 2);
+            }
+            SDL_Rect mySpritePos = {.x = x,
+                                    .y = y,
                                     .w = (int)SIZE_W,
                                     .h = (int)SIZE_H};
-
+            
             SDL_Texture* img;
             if (currentMovedPiece != 99)
                 img = images[currentMovedPiece];
@@ -470,7 +513,7 @@ int mainloop() {
         // Update screen
         SDL_RenderPresent(gRenderer);
     }
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
     return 1;
 #endif
 
@@ -548,8 +591,8 @@ int main(int argc, char* args[]) {
         window = SDL_CreateWindow("LiLearn", SDL_WINDOWPOS_UNDEFINED,
                                   SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH,
                                   SCREEN_HEIGHT,
-                                  SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-
+                                  SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL| SDL_WINDOW_RESIZABLE);
+        
         if (window == NULL) {
             printf("Window could not be created! SDL_Error: %s\n",
                    SDL_GetError());
@@ -557,7 +600,7 @@ int main(int argc, char* args[]) {
             
             SDL_SetWindowSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
             gRenderer =
-                SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+                SDL_CreateRenderer(window, -1,SDL_RENDERER_ACCELERATED);
             SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
             images = fillImages();
 
@@ -565,7 +608,7 @@ int main(int argc, char* args[]) {
             // handle events
         }
     }
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
     emscripten_set_main_loop(mainloop, 0, 1);
 #else
     while (mainloop()) {
