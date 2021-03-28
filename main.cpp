@@ -35,12 +35,9 @@ resumeAudio); document.removeEventListener('keydown', resumeAudio);
 
 /* TODOS :
 
-Add sound effects
-Git gud
 Show all legal moves with a dot
 Highlight wrong moves with red
 Highlight last made move
-Add Chewt's UCI
 
 */
 
@@ -51,13 +48,14 @@ Add Chewt's UCI
 #include <stdio.h>
 #include <stdlib.h> /* srand, rand */
 #include <time.h>   /* time */
+
+#include <array>
 #include <map>
 #include <queue>
 #include <stack>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <array>
 
 #include "board.h"
 
@@ -65,14 +63,14 @@ Add Chewt's UCI
 #include <emscripten.h>
 #endif
 
+// hashing struct for pairs
 struct hash_pair {
-
-    size_t operator()(std::pair<int,int> p) const {
+    size_t operator()(std::pair<int, int> p) const {
         return size_t(p.first) << 32 | p.second;
     }
 };
 
-
+// globals 
 int SCREEN_WIDTH = 512;
 int SCREEN_HEIGHT = 512;
 std::unordered_map<int, SDL_Texture*> images;
@@ -87,6 +85,8 @@ int validMove = 0;
 int currentMovedPiece = -1;
 int oldMovedPiece = -1;
 int firstTimePlayingFlag = 1;
+
+// Global state for SDL window/render/sound/etc
 SDL_Window* window = NULL;
 SDL_Renderer* gRenderer = NULL;
 liBoard* board = NULL;
@@ -95,76 +95,97 @@ Mix_Chunk* moveSound = NULL;
 Mix_Chunk* captureSound = NULL;
 Mix_Chunk* winSound = NULL;
 
-
 SDL_Texture* loadTexture(std::string path, SDL_Renderer* gRenderer);
 void boardSetup();
+
+// hashes the board to a string
+std::string hashBoard(std::array<std::array<int, 8>, 8>& myBoard) {
+    int res = 0;
+    std::string em = "";
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            em += std::to_string(myBoard[i][j]);
+        }
+    }
+    return em;
+}
+
+// returns all the possible board combinations 
+std::vector<movePiece> possibleMoves() {
+    std::vector<movePiece> moves;
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            for (int k = 0; k < 8; ++k) {
+                for (int l = 0; l < 8; ++l) {
+                    if (i != k || j != l) {
+                        movePiece tempMove = {i, j, k, l};
+                        moves.push_back(tempMove);
+                    }
+                }
+            }
+        }
+    }
+    return moves;
+}
+
+// calculates the number of moves to optimally collect all stars
 int numOptimalMovesToStar() {
     // pair of (num stars collected , board)
     int maxStacksize = 1;
-    std::map<std::array<std::array<int,8>,8>, int> visited;
-    std::queue<std::tuple<int, int, std::array<std::array<int,8>,8>>> stack;
+
+    std::unordered_map<std::string, int> visited;
+    std::queue<std::tuple<int, int, std::array<std::array<int, 8>, 8>>> stack;
+
     stack.push(std::make_tuple(0, 0, board->board));
     int minNum = 2147483647;
     while (!stack.empty()) {
-        maxStacksize = std::max(maxStacksize,(int)stack.size());
+        maxStacksize = std::max(maxStacksize, (int)stack.size());
         // get current board
         liBoard curBoard;
         curBoard.board = std::get<2>(stack.front());
         // if board is not in visited
-        if (!(visited.find(curBoard.board) != visited.end())) {
+        std::string resHash = hashBoard(curBoard.board);
+        if (!(visited.find(resHash) != visited.end())) {
             // add to visited
 
             int curStarcount = std::get<0>(stack.front());
             int curMoveCount = std::get<1>(stack.front());
-            visited[curBoard.board] = curMoveCount;
+            visited[resHash] = curMoveCount;
             if (curStarcount == num_stars_in_board) {
                 minNum = std::min(std::get<1>(stack.front()), minNum);
-                printf("max size of stack: %d ," ,maxStacksize);
-                printf("size of visited %d\n",visited.size());
+                printf("max size of stack: %d ,", maxStacksize);
+                printf("size of visited %d\n", visited.size());
                 return minNum;
             }
             stack.pop();
-            for (int i = 0; i < 8; ++i) {
-                for (int j = 0; j < 8; ++j) {
-                    for (int k = 0; k < 8; ++k) {
-                        for (int l = 0; l < 8; ++l) {
-                            if (i != k || j != l) {
-                                if (curBoard.board[i][j] &&
-                                    curBoard.board[i][j] != 99) {
-                                    movePiece tempMove = {i, j, k, l};
-                                    if (curBoard.validateMove(&tempMove)) {
-                                        // add this to stack
-                                        liBoard backup;
-                                        int starFlag = 0;
-                                        backup.board = curBoard.board;
-                                        if (curBoard.board[k][l] == 99) {
-                                            starFlag = 1;
-                                        }
-                                        curBoard.updateBoard(&tempMove);
-                                        if (starFlag) {
-                                            stack.push(std::make_tuple(
-                                                curStarcount + 1,
-                                                curMoveCount + 1, curBoard.board));
-                                        } else {
-                                            stack.push(std::make_tuple(
-                                                curStarcount, curMoveCount + 1,
-                                                curBoard.board));
-                                        }
+            for (auto tempMove : possibleMoves()) {
+                if ((tempMove.i != tempMove.goalI ||
+                     tempMove.j != tempMove.goalJ) &&
+                    (curBoard.board[tempMove.i][tempMove.j] &&
+                     curBoard.board[tempMove.i][tempMove.j] != 99 &&
+                     curBoard.validateMove(&tempMove))) {
+                    // add this to stack
+                    liBoard backup = {.board = curBoard.board};
+                    int starFlag =
+                        (curBoard.board[tempMove.goalI][tempMove.goalJ] == 99)
+                            ? 1
+                            : 0;
+                    curBoard.updateBoard(&tempMove);
 
-                                        curBoard.board = backup.board;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    stack.push(std::make_tuple(curStarcount + starFlag,
+                                               curMoveCount + 1,
+                                               curBoard.board));
+
+                    curBoard.board = backup.board;
                 }
             }
+
         } else {
             // if position of board is
             stack.pop();
         }
     }
-    printf("size of visited %d\n",visited.size());
+    printf("size of visited %d\n", visited.size());
     return minNum;
 }
 
@@ -187,6 +208,7 @@ char* pieceNamesPng[] = {"",
 const int whitePieceArr[] = {10, 11, 13};
 const int blackPieceArr[] = {6, 4, 5};
 
+// set up the images (and sound) of the game!
 std::unordered_map<int, SDL_Texture*> fillImages() {
     std::unordered_map<int, SDL_Texture*> a;
     for (int i = 0; i < 3; ++i) {
@@ -300,10 +322,7 @@ void close(SDL_Window* gWindow, SDL_Renderer* gRenderer) {
     SDL_Quit();
 }
 
-int hashBoard(std::array<std::array<int,8>,8>& myBoard) {
-    int res = 0;
-
-}
+// the main loop of the program that runs every frame
 #ifdef EMSCRIPTEN
 void mainloop() {
 #else
@@ -455,8 +474,7 @@ int mainloop() {
 void boardSetup() {
     num_stars_in_board = (rand() % 4) + 6;
     std::vector<std::pair<int, int>> starPairs;
-    std::unordered_map<std::pair<int, int>, int,hash_pair> visi;
-
+    std::unordered_map<std::pair<int, int>, int, hash_pair> visi;
     int random_piece_choice = rand() % 3;
     int mainPieceI = rand() % 8;
     int mainPieceJ = rand() % 8;
@@ -471,32 +489,20 @@ void boardSetup() {
         starPairs.push_back(sample);
     }
     if (firstTimePlayingFlag) {
-        for (int i = 0; i < 8; ++i) {
-            for (int j = 0; j < 8; ++j) {
-                if (i == mainPieceI && j == mainPieceJ) {
-                    board->board[i][j] = whitePieceArr[random_piece_choice];
-                } else {
-                    board->board[i][j] = 0;
-                }
-            }
-        }
-        for (int i = 0; i < num_stars_in_board; ++i) {
-            board->board[starPairs[i].first][starPairs[i].second] = 99;
-        }
         firstTimePlayingFlag = 0;
-    } else {
-        for (int i = 0; i < 8; ++i) {
-            for (int j = 0; j < 8; ++j) {
-                if (i == mainPieceI && j == mainPieceJ) {
-                    board->board[i][j] = whitePieceArr[random_piece_choice];
-                } else {
-                    board->board[i][j] = 0;
-                }
+    }
+
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            if (i == mainPieceI && j == mainPieceJ) {
+                board->board[i][j] = whitePieceArr[random_piece_choice];
+            } else {
+                board->board[i][j] = 0;
             }
         }
-        for (int i = 0; i < num_stars_in_board; ++i) {
-            board->board[starPairs[i].first][starPairs[i].second] = 99;
-        }
+    }
+    for (int i = 0; i < num_stars_in_board; ++i) {
+        board->board[starPairs[i].first][starPairs[i].second] = 99;
     }
 }
 int main(int argc, char* args[]) {
