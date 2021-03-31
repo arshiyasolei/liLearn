@@ -491,7 +491,7 @@ int mainloop() {
 
 // function that sets up board randomly
 void boardSetup() {
-    num_stars_in_board = (rand() % 20) + 12;
+    num_stars_in_board = (rand() % 4) + 5;
     std::vector<std::pair<int, int>> starPairs;
     std::unordered_map<std::pair<int, int>, int, hash_pair> visi;
     int random_piece_choice = rand() % 3;
