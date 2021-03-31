@@ -493,7 +493,7 @@ int mainloop() {
 void boardSetup() {
     num_stars_in_board = (rand() % 4) + 5;
     std::vector<std::pair<int, int>> starPairs;
-    std::unordered_map<std::pair<int, int>, int, hash_pair> visi;
+    std::map<std::pair<int, int>, int> visi;
     int random_piece_choice = rand() % 3;
     // random_piece_choice = 1;
     int mainPieceI = rand() % 8;
