@@ -491,11 +491,11 @@ int mainloop() {
 
 // function that sets up board randomly
 void boardSetup() {
-    num_stars_in_board = (rand() % 30) + 12;
+    num_stars_in_board = (rand() % 20) + 12;
     std::vector<std::pair<int, int>> starPairs;
     std::unordered_map<std::pair<int, int>, int, hash_pair> visi;
     int random_piece_choice = rand() % 3;
-    random_piece_choice = 1;
+    // random_piece_choice = 1;
     int mainPieceI = rand() % 8;
     int mainPieceJ = rand() % 8;
     visi[std::make_pair(mainPieceI, mainPieceJ)] = 0;
@@ -545,7 +545,7 @@ int main(int argc, char* args[]) {
     printf("num optimal Moves %d \n", optimal_star);
     // Initialize SDL and SDL_Image
     IMG_Init(IMG_INIT_PNG);
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER |
                  SDL_INIT_AUDIO) < 0) {
@@ -559,7 +559,7 @@ int main(int argc, char* args[]) {
         window = SDL_CreateWindow("LiLearn", SDL_WINDOWPOS_UNDEFINED,
                                   SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH,
                                   SCREEN_HEIGHT,
-                                  SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL| SDL_WINDOW_RESIZABLE);
+                                  SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
         
         if (window == NULL) {
             printf("Window could not be created! SDL_Error: %s\n",
