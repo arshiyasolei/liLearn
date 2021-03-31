@@ -169,14 +169,7 @@ int numOptimalMovesToStar() {
                             : 0;
                     curBoard.updateBoard(&tempMove);
                     std::queue<std::tuple<int, int, std::array<std::array<int, 8>, 8>>> nq;
-                    if (starFlag) {
-                        nq.push(std::make_tuple(curStarcount + starFlag,
-                            curMoveCount + 1,
-                            curBoard.board));
-                        stack = nq;
-                        curBoard.board = backup.board;
-                        break;
-                    } 
+
                     stack.push(std::make_tuple(curStarcount + starFlag,
                                                curMoveCount + 1,
                                                curBoard.board));
