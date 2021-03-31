@@ -153,9 +153,6 @@ int numOptimalMovesToStar() {
             visited[resHash] = curMoveCount;
             if (curStarcount == num_stars_in_board) {
                 minNum = std::min(std::get<1>(stack.front()), minNum);
-                printf("max size of stack: %d ,", maxStacksize);
-                printf("size of visited %d\n", visited.size());
-                return minNum;
             }
             stack.pop();
             for (auto tempMove : possibleMoves()) {
